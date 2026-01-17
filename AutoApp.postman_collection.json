@@ -1,0 +1,205 @@
+{
+  "info": {
+    "name": "AutoApp",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Customer Signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerName\": \"Test Customer\",\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/auth/signup/customer",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "auth", "signup", "customer"]
+        }
+      }
+    },
+    {
+      "name": "Mechanic Signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mechanicName\": \"Test Mechanic\",\n  \"email\": \"mechanic@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/auth/signup/mechanic",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "auth", "signup", "mechanic"]
+        }
+      }
+    },
+    {
+      "name": "Admin Signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"adminUserName\": \"Test Admin\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/auth/signup/admin",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "auth", "signup", "admin"]
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+     {
+      "name": "Customer Create Service Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YjBjMzI4MWI0NDQ2NDJiYTQwOWMzZSIsInVzZXJUeXBlIjoiY3VzdG9tZXIiLCJpYXQiOjE3NTY0MTQ5NDMsImV4cCI6MTc1NjUwMTM0M30.hE4a5Oz8EKnDUZhkQBjuNNQj_PrMnrvzyTPjJdN40sI" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mechanicId\": \"<mechanic_id>\",\n  \"vehicle\": {\n    \"make\": \"Toyota\",\n    \"model\": \"Camry\",\n    \"year\": 2020\n  },\n  \"description\": \"Oil change needed\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/service-request",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request"]
+        }
+      }
+    },
+    {
+      "name": "Mechanic Accept Service Request",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YjBjMzI4MWI0NDQ2NDJiYTQwOWMzZSIsInVzZXJUeXBlIjoiY3VzdG9tZXIiLCJpYXQiOjE3NTY0MTQ5NDMsImV4cCI6MTc1NjUwMTM0M30.hE4a5Oz8EKnDUZhkQBjuNNQj_PrMnrvzyTPjJdN40sI" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"accepted\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/service-request/<serviceRequestId>",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request", "<serviceRequestId>"]
+        }
+      }
+    },
+    {
+      "name": "Mechanic Ask Question",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer <mechanic_token>" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"question\",\n  \"question\": \"What type of oil do you prefer?\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/service-request/<serviceRequestId>",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request", "<serviceRequestId>"]
+        }
+      }
+    },
+    {
+      "name": "Mechanic Reject Service Request",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer <mechanic_token>" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"rejected\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/api/service-request/<serviceRequestId>",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request", "<serviceRequestId>"]
+        }
+      }
+    },
+    {
+      "name": "Get Mechanic Service Requests",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer <mechanic_token>" }
+        ],
+        "url": {
+          "raw": "http://localhost:5001/api/service-request/mechanic/<mechanic_id>",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request", "mechanic", "<mechanic_id>"]
+        }
+      }
+    },
+    {
+      "name": "Get Customer Service Requests",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer <customer_token>" }
+        ],
+        "url": {
+          "raw": "http://localhost:5001/api/service-request/customer/<customer_id>",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5001",
+          "path": ["api", "service-request", "customer", "<customer_id>"]
+        }
+      }
+    }
+
+  ]
+}
