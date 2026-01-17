@@ -9,23 +9,35 @@ router.use(authMiddleware); // only logged-in users can access
 // POST /api/vehicles - create a new vehicle for logged-in customer
 router.post('/', async (req, res) => {
     try {
-        const { make, model, year, vin, licensePlate, color, isPrimary } = req.body;
+        const { make, model, year, vin, licensePlate, color, isPrimary, ownerId } = req.body;
+
+        // Use ownerId from request body if provided, otherwise use authenticated user's ID
+        const customerId = ownerId || req.user.id;
+
+        // Check if this is the customer's first vehicle to set as primary
+        const existingVehicles = await Vehicle.countDocuments({ customer: customerId });
+        const shouldBePrimary = existingVehicles === 0 || isPrimary;
 
         const vehicle = new Vehicle({
-            customer: req.user.id, // make sure auth sets this
+            customer: customerId,
             make,
             model,
             year,
             vin,
             licensePlate,
             color,
-            isPrimary: !!isPrimary
+            isPrimary: shouldBePrimary
         });
 
         await vehicle.save();
-        res.status(201).json(vehicle);
+        
+        res.status(201).json({
+            success: true,
+            message: 'Vehicle created successfully',
+            vehicle
+        });
     } catch (err) {
-        console.error(err);
+        console.error('Error creating vehicle:', err);
         res.status(400).json({ error: err.message });
     }
 });
