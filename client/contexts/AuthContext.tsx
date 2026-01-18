@@ -125,13 +125,16 @@ export const AuthProvider: React.FC<{ children: ReactNode; }> = ({ children }) =
                 await AsyncStorage.setItem('authToken', data.token);
                 setToken(data.token);
                 setUser(data.user);
+                setIsLoading(false); // Set loading to false to trigger navigation
 
                 return { success: true, message: data.message };
             } else {
+                setIsLoading(false);
                 return { success: false, message: data.error || 'Login failed' };
             }
         } catch (error) {
             console.error('Login error:', error);
+            setIsLoading(false);
             return { success: false, message: 'Network error. Please try again.' };
         }
     };
@@ -153,13 +156,16 @@ export const AuthProvider: React.FC<{ children: ReactNode; }> = ({ children }) =
                 await AsyncStorage.setItem('authToken', data.token);
                 setToken(data.token);
                 setUser(data.user);
+                setIsLoading(false); // Set loading to false to trigger navigation
 
                 return { success: true, message: data.message };
             } else {
+                setIsLoading(false);
                 return { success: false, message: data.error || 'Registration failed' };
             }
         } catch (error) {
             console.error('Registration error:', error);
+            setIsLoading(false);
             return { success: false, message: 'Network error. Please try again.' };
         }
     };
@@ -183,7 +189,7 @@ export const AuthProvider: React.FC<{ children: ReactNode; }> = ({ children }) =
             await AsyncStorage.removeItem('authToken');
             setToken(null);
             setUser(null);
-            router.replace('/');
+            // Navigation is handled by the calling component
         }
     };
 

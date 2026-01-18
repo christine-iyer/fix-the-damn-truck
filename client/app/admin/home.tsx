@@ -3,16 +3,22 @@ import {
   View,
   Text,
   StyleSheet,
-  Button,
   Alert,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
   Modal,
   TextInput,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
+import { useRouter } from "expo-router";
+import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withDelay } from 'react-native-reanimated';
 
 interface QuickStat {
   title: string;
@@ -32,15 +38,30 @@ interface PendingUser {
 }
 
 export default function AdminHomeScreen() {
+  const router = useRouter();
   const { user, logout, token } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
   // Real API data state
   const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Hover states for web hover effects
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [hoveredPendingUser, setHoveredPendingUser] = useState<string | null>(null);
+  const [hoveredActivity, setHoveredActivity] = useState<string | null>(null);
+
+  // Animation values
+  const fadeAnim = useSharedValue(0);
+  const slideYAnim = useSharedValue(30);
+
+  useEffect(() => {
+    fadeAnim.value = withDelay(200, withTiming(1, { duration: 800 }));
+    slideYAnim.value = withDelay(200, withSpring(0, { damping: 15, stiffness: 100 }));
+  }, [fadeAnim, slideYAnim]);
 
   // Fetch quick stats from API
   const fetchQuickStats = async () => {
@@ -111,18 +132,12 @@ export default function AdminHomeScreen() {
   ];
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: logout
-        }
-      ]
-    );
+    try {
+      await logout();
+      router.replace('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   // Fetch stats when component mounts
@@ -130,6 +145,7 @@ export default function AdminHomeScreen() {
     if (user) {
       fetchQuickStats();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const onRefresh = async () => {
@@ -197,8 +213,29 @@ export default function AdminHomeScreen() {
     );
   };
 
+  // Animated styles
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+    transform: [{ translateY: slideYAnim.value }],
+  }));
+
   const renderQuickStat = (stat: QuickStat) => (
-    <View key={stat.title} style={[styles.statCard, { borderLeftColor: stat.color }]}>
+    <View 
+      key={stat.title} 
+      style={[
+        styles.statCard, 
+        { borderLeftColor: stat.color },
+        hoveredCard === stat.title && styles.statCardHover
+      ]}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter: () => setHoveredCard(stat.title),
+        onMouseLeave: () => setHoveredCard(null)
+      } : {})}
+    >
       <Text style={styles.statIcon}>{stat.icon}</Text>
       <Text style={styles.statValue}>{stat.value}</Text>
       <Text style={styles.statTitle}>{stat.title}</Text>
@@ -206,7 +243,16 @@ export default function AdminHomeScreen() {
   );
 
   const renderPendingUser = ({ item }: { item: PendingUser; }) => (
-    <View style={styles.pendingUserCard}>
+    <View 
+      style={[
+        styles.pendingUserCard,
+        hoveredPendingUser === item.id && styles.pendingUserCardHover
+      ]}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter: () => setHoveredPendingUser(item.id),
+        onMouseLeave: () => setHoveredPendingUser(null)
+      } : {})}
+    >
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{item.username}</Text>
         <Text style={styles.userEmail}>{item.email}</Text>
@@ -233,7 +279,16 @@ export default function AdminHomeScreen() {
   );
 
   const renderActivityItem = ({ item }: { item: any; }) => (
-    <View style={styles.activityItem}>
+    <View 
+      style={[
+        styles.activityItem,
+        hoveredActivity === item.id && styles.activityItemHover
+      ]}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter: () => setHoveredActivity(item.id),
+        onMouseLeave: () => setHoveredActivity(null)
+      } : {})}
+    >
       <View style={styles.activityIcon}>
         <Text style={styles.activityEmoji}>📋</Text>
       </View>
@@ -246,41 +301,66 @@ export default function AdminHomeScreen() {
   );
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Admin Dashboard</Text>
-        <Text style={styles.welcomeText}>Welcome, {user?.username}!</Text>
-        <Text style={styles.statusText}>Status: {user?.status?.toUpperCase()}</Text>
-      </View>
+    <View style={styles.container}>
+      <Image 
+        source={require('../../assets/images/auto_admin_img_4.png')} 
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+      />
+      
+      {/* Gradient overlay layers */}
+      <View style={styles.overlay} />
+      <View style={styles.overlayGradient} />
+      
+      {/* Glassmorphism blur effect */}
+      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
 
-      {/* Quick Stats */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Stats</Text>
-        {statsLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading stats...</Text>
-          </View>
-        ) : (
-          <View style={styles.statsGrid}>
-            {quickStats.map(renderQuickStat)}
-          </View>
-        )}
-      </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={[styles.contentWrapper, containerStyle]}>
+          {/* Header */}
+          <Animated.View style={[styles.header, headerStyle]}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="car-sport" size={40} color="#FFFFFF" />
+            </View>
+            <Text style={styles.title}>Admin Dashboard</Text>
+            <Text style={styles.welcomeText}>Welcome, {user?.username}!</Text>
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusBadge, user?.status === 'approved' && styles.statusApproved]}>
+                <Text style={styles.statusText}>Status: {user?.status?.toUpperCase()}</Text>
+              </View>
+            </View>
+          </Animated.View>
 
-      {/* Pending Approvals */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Pending Approvals</Text>
-          <TouchableOpacity style={styles.viewAllButton}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Quick Stats */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Stats</Text>
+            {statsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.loadingText}>Loading stats...</Text>
+              </View>
+            ) : (
+              <View style={styles.statsGrid}>
+                {quickStats.map(renderQuickStat)}
+              </View>
+            )}
+          </View>
+
+          {/* Pending Approvals */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Approvals</Text>
+              <TouchableOpacity style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
         <FlatList
           data={pendingUsers}
           renderItem={renderPendingUser}
@@ -291,49 +371,96 @@ export default function AdminHomeScreen() {
         />
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionIcon}>👥</Text>
-            <Text style={styles.quickActionText}>Manage Users</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionIcon}>📊</Text>
-            <Text style={styles.quickActionText}>Analytics</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionIcon}>⚙️</Text>
-            <Text style={styles.quickActionText}>Settings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickActionButton}
-            onPress={() => setShowUserModal(true)}
-          >
-            <Text style={styles.quickActionIcon}>📢</Text>
-            <Text style={styles.quickActionText}>Announce</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity 
+                style={[
+                  styles.quickActionButton,
+                  hoveredButton === 'manageUsers' && styles.quickActionButtonHover
+                ]}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => setHoveredButton('manageUsers'),
+                  onMouseLeave: () => setHoveredButton(null)
+                } : {})}
+              >
+                <Ionicons name="people" size={28} color="#FFFFFF" />
+                <Text style={styles.quickActionText}>Manage Users</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.quickActionButton,
+                  hoveredButton === 'analytics' && styles.quickActionButtonHover
+                ]}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => setHoveredButton('analytics'),
+                  onMouseLeave: () => setHoveredButton(null)
+                } : {})}
+              >
+                <Ionicons name="stats-chart" size={28} color="#FFFFFF" />
+                <Text style={styles.quickActionText}>Analytics</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.quickActionButton,
+                  hoveredButton === 'settings' && styles.quickActionButtonHover
+                ]}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => setHoveredButton('settings'),
+                  onMouseLeave: () => setHoveredButton(null)
+                } : {})}
+              >
+                <Ionicons name="settings" size={28} color="#FFFFFF" />
+                <Text style={styles.quickActionText}>Settings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.quickActionButton,
+                  hoveredButton === 'announce' && styles.quickActionButtonHover
+                ]}
+                onPress={() => setShowUserModal(true)}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => setHoveredButton('announce'),
+                  onMouseLeave: () => setHoveredButton(null)
+                } : {})}
+              >
+                <Ionicons name="megaphone" size={28} color="#FFFFFF" />
+                <Text style={styles.quickActionText}>Announce</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-      {/* Recent Activity */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <FlatList
-          data={recentActivity}
-          renderItem={renderActivityItem}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-        />
-      </View>
+          {/* Recent Activity */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <FlatList
+              data={recentActivity}
+              renderItem={renderActivityItem}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+            />
+          </View>
 
-      {/* Logout Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Logout Button */}
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={[
+                styles.logoutButton,
+                hoveredButton === 'logout' && styles.logoutButtonHover
+              ]} 
+              onPress={handleLogout}
+              {...(Platform.OS === 'web' ? {
+                onMouseEnter: () => setHoveredButton('logout'),
+                onMouseLeave: () => setHoveredButton(null)
+              } : {})}
+            >
+              <Ionicons name="log-out" size={20} color="#FFFFFF" style={styles.buttonIcon} />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </ScrollView>
 
       {/* Announcement Modal */}
       <Modal
@@ -343,11 +470,13 @@ export default function AdminHomeScreen() {
         onRequestClose={() => setShowUserModal(false)}
       >
         <View style={styles.modalOverlay}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Send Announcement</Text>
             <TextInput
               style={styles.announcementInput}
               placeholder="Enter your announcement..."
+              placeholderTextColor="rgba(0, 0, 0, 0.5)"
               value={announcement}
               onChangeText={setAnnouncement}
               multiline
@@ -370,46 +499,88 @@ export default function AdminHomeScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  overlayGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 50, 100, 0.15)',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  contentWrapper: {
+    gap: 12,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 12,
+  },
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    color: '#333',
-    marginBottom: 8
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 10,
+    letterSpacing: 1,
   },
   welcomeText: {
-    fontSize: 18,
-    color: '#007AFF',
-    marginBottom: 4
+    fontSize: 15,
+    color: '#F0F0F0',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 5,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  statusApproved: {
+    backgroundColor: 'rgba(76, 175, 80, 0.3)',
   },
   statusText: {
-    fontSize: 14,
-    color: '#28a745',
-    fontWeight: '500'
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   section: {
-    marginBottom: 20,
-    paddingHorizontal: 20
+    marginBottom: 12,
+    alignItems: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -419,109 +590,146 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333'
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   viewAllButton: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007AFF',
-    borderRadius: 15
+    paddingVertical: 8,
+    backgroundColor: '#6B8FA3',
+    borderRadius: 12,
+    shadowColor: '#6B8FA3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   viewAllText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '500'
+    fontWeight: '700'
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between'
+    justifyContent: 'center',
+    gap: 12
   },
   statCard: {
     width: '48%',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
     borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  statCardHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    transform: [{ translateY: -3 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   statIcon: {
-    fontSize: 24,
+    fontSize: 28,
     marginBottom: 8
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
   },
   statTitle: {
     fontSize: 12,
-    color: '#666',
-    fontWeight: '500'
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600'
   },
   pendingUsersList: {
     paddingRight: 20
   },
   pendingUserCard: {
     width: 280,
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 18,
+    borderRadius: 16,
     marginRight: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6
+  },
+  pendingUserCardHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    transform: [{ translateY: -3 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   userInfo: {
     flex: 1,
     marginBottom: 15
   },
   userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
   },
   userEmail: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 4
   },
   userRole: {
     fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
+    color: '#6B8FA3',
+    fontWeight: '600',
     marginBottom: 4
   },
   userDetail: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2
   },
   userDate: {
     fontSize: 11,
-    color: '#999',
+    color: 'rgba(255, 255, 255, 0.6)',
     marginTop: 4
   },
   userActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around'
+    justifyContent: 'space-around',
+    gap: 12
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6
   },
   approveButton: {
     backgroundColor: '#34C759'
@@ -531,170 +739,219 @@ const styles = StyleSheet.create({
   },
   approveButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold'
   },
   rejectButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold'
   },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between'
+    justifyContent: 'center',
+    gap: 12
   },
   quickActionButton: {
-    width: '48%',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
+    width: '42%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 14,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  quickActionIcon: {
-    fontSize: 32,
-    marginBottom: 8
+  quickActionButtonHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    transform: [{ translateY: -2 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   quickActionText: {
     fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-    textAlign: 'center'
+    color: '#FFFFFF',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
   },
   activityItem: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6
+  },
+  activityItemHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    transform: [{ translateY: -2 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15
   },
   activityEmoji: {
-    fontSize: 20
+    fontSize: 22
   },
   activityContent: {
     flex: 1
   },
   activityAction: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
   },
   activityUser: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 2
   },
   activityTime: {
     fontSize: 11,
-    color: '#999'
+    color: 'rgba(255, 255, 255, 0.6)'
   },
   footer: {
     padding: 20,
     paddingBottom: 40
   },
   logoutButton: {
-    backgroundColor: '#FF3B30',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center'
+    backgroundColor: '#6B8FA3',
+    padding: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: '#6B8FA3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
+    alignSelf: 'center',
+    width: '42%',
+  },
+  logoutButtonHover: {
+    backgroundColor: '#7BA8BD',
+    transform: [{ translateY: -2 }],
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   logoutButtonText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold'
+    fontWeight: '700',
+    letterSpacing: 1
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 24,
     width: '100%',
-    maxWidth: 400
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: 'center'
   },
   announcementInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(107, 143, 163, 0.3)',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
     textAlignVertical: 'top',
-    fontSize: 16
+    fontSize: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    minHeight: 120
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    gap: 12
   },
   modalButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 5
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0'
+    backgroundColor: 'rgba(0, 0, 0, 0.1)'
   },
   sendButton: {
-    backgroundColor: '#007AFF'
+    backgroundColor: '#6B8FA3'
   },
   cancelButtonText: {
     color: '#666',
     fontSize: 16,
-    fontWeight: '500'
+    fontWeight: '700'
   },
   sendButtonText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold'
+    fontWeight: '700'
   },
   loadingContainer: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
-    fontStyle: 'italic'
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+    marginTop: 12
   }
 });
